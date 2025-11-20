@@ -1,0 +1,90 @@
+components_manager:
+  task_processors:
+    main-task-processor:
+      thread_name: main-worker
+      worker_threads: 4
+    fs-task-processor:
+      thread_name: fs-worker
+      worker_threads: 2
+  default_task_processor: main-task-processor
+
+  components:
+    server:
+      listener:
+        port: 8080
+        address: 0.0.0.0
+      listener-monitor:
+        port: 8081
+        address: 0.0.0.0
+      task_processor: main-task-processor
+      middleware:
+        set-response-server-hostname: false
+
+    logging:
+      fs-task-processor: fs-task-processor
+      loggers:
+        default:
+          file_path: '@stderr'
+          level: info
+          flush-level: info
+          pattern: '%Y-%m-%d %H:%M:%S.%fZ %l TID=%t %v'
+
+    tracer:
+      service-name: masterclasses-service
+
+    dns-client:
+      fs-task-processor: fs-task-processor
+
+    http-client:
+      fs-task-processor: fs-task-processor
+
+    statistics-storage: {}
+
+    secdist:
+      config: configs/secdist.json
+      environment: production
+
+    dynamic-config:
+      fs-task-processor: fs-task-processor
+      fallback-path: configs/dynamic_config_fallbacks.json
+      defaults:
+        USERVER_LOG_REQUEST: false
+
+    dynamic-config-client:
+      config-url: ''
+      http-timeout: 1s
+      retries-enabled: false
+
+    dynamic-config-client-updater:
+      update-interval: 5s
+      config-settings: {}
+
+    masterclasses-db:
+      dbalias: masterclasses-db
+      blocking-task-processor: fs-task-processor
+      command-control:
+        network-timeout: 1s
+        statement-time-limit: 500ms
+
+    users-db:
+      dbalias: users-db
+      blocking-task-processor: fs-task-processor
+      command-control:
+        network-timeout: 1s
+        statement-time-limit: 500ms
+
+    handler-ping:
+      path: /ping
+      task_processor: main-task-processor
+      method: GET
+
+    handler-mclist:
+      path: /mclist
+      task_processor: main-task-processor
+      method: GET
+
+    handler-mcadd:
+      path: /mcadd
+      task_processor: main-task-processor
+      method: POST
+

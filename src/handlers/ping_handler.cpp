@@ -28,7 +28,8 @@ std::string PingHandler::HandleRequestThrow(
     const userver::server::http::HttpRequest& request,
     userver::server::request::RequestContext&) const {
   request.SetResponseStatus(userver::server::http::HttpStatus::kOk);
-  request.SetResponseContentType(userver::http::content_type::kApplicationJson);
+  request.GetHttpResponse().SetContentType(
+      userver::http::content_type::kApplicationJson);
 
   userver::formats::json::ValueBuilder response;
   response["status"] = "ok";

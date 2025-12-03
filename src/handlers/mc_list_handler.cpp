@@ -15,17 +15,19 @@ namespace masterclasses::handlers {
 
 namespace {
 
+using ClusterHostType = userver::storages::postgres::ClusterHostType;
+
 const userver::storages::postgres::Query kSelectMasterclasses{
     "SELECT id, title, location, price, website, image_url "
     "FROM masterclasses ORDER BY id ASC LIMIT $1",
     userver::storages::postgres::Query::Name{"select-masterclasses"}};
 
-const userver::storages::postgres::Query kTrackUserRequest{
-    "INSERT INTO user_requests (user_id, request_count) VALUES ($1, 1) "
-    "ON CONFLICT (user_id) DO UPDATE "
+const userver::storages::postgres::Query kIncrementUserRequest{
+    "UPDATE user_requests "
     "SET request_count = user_requests.request_count + 1 "
+    "WHERE user_id = $1 "
     "RETURNING request_count",
-    userver::storages::postgres::Query::Name{"track-user-request"}};
+    userver::storages::postgres::Query::Name{"increment-user-request"}};
 
 std::int64_t ParsePositiveInt(const std::string& raw) {
   if (raw.empty()) {
@@ -61,30 +63,43 @@ McListHandler::McListHandler(
 std::string McListHandler::HandleRequestThrow(
     const userver::server::http::HttpRequest& request,
     userver::server::request::RequestContext&) const {
-  request.SetResponseContentType(
+  request.GetHttpResponse().SetContentType(
       userver::http::content_type::kApplicationJson);
 
   const auto raw_limit = request.GetArg("n");
   const auto user_id = request.GetArg("user_id");
 
-  if (user_id.empty()) {
-    throw userver::server::handlers::ClientError(
-        userver::server::handlers::HandlerErrorCode::kInvalidArgument,
-        "user_id must be provided");
-  }
+  const bool has_user = !user_id.empty();
 
   std::int64_t limit = 0;
   try {
     limit = ParsePositiveInt(raw_limit);
   } catch (const std::exception& ex) {
     throw userver::server::handlers::ClientError(
-        userver::server::handlers::HandlerErrorCode::kInvalidArgument,
-        std::string{"invalid n: "} + ex.what());
+        userver::server::handlers::ExternalBody{std::string{"invalid n: "} +
+                                                ex.what()});
   }
   limit = std::min(limit, kMaxLimit);
 
-  const auto result =
-      masterclasses_cluster_->Execute(kSelectMasterclasses, limit);
+  const auto counter_result = users_cluster_->Execute(
+      ClusterHostType::kMaster, kIncrementUserRequest, user_id);
+  std::optional<std::int64_t> request_count;
+  if (has_user) {
+    const auto counter_result = users_cluster_->Execute(
+        ClusterHostType::kMaster, kIncrementUserRequest, user_id);
+    if (counter_result.IsEmpty()) {
+      request.SetResponseStatus(userver::server::http::HttpStatus::kNotFound);
+      userver::formats::json::ValueBuilder error;
+      error["status"] = "user_not_found";
+      error["user_id"] = user_id;
+      return userver::formats::json::ToString(error.ExtractValue());
+    }
+    const auto counter = counter_result.Front();
+    request_count = counter["request_count"].As<std::int64_t>();
+  }
+
+  const auto result = masterclasses_cluster_->Execute(
+      ClusterHostType::kSlave, kSelectMasterclasses, limit);
 
   userver::formats::json::ValueBuilder masterclasses_json(
       userver::formats::json::Type::kArray);
@@ -101,14 +116,11 @@ std::string McListHandler::HandleRequestThrow(
     ++returned;
   }
 
-  const auto counter =
-      users_cluster_->Execute(kTrackUserRequest, user_id).Front();
-  const auto request_count =
-      counter["request_count"].As<std::int64_t>(std::int64_t{1});
-
   userver::formats::json::ValueBuilder response;
-  response["user_id"] = user_id;
-  response["request_count"] = request_count;
+  if (has_user) {
+    response["user_id"] = user_id;
+    response["request_count"] = *request_count;
+  }
   response["returned"] = returned;
   response["masterclasses"] = masterclasses_json.ExtractValue();
 

@@ -13,6 +13,10 @@ add_executable(masterclasses-service
     src/handlers/ping_handler.cpp
     src/handlers/mc_list_handler.cpp
     src/handlers/mc_add_handler.cpp
+    src/handlers/mc_add_bulk_handler.cpp
+    src/handlers/mc_delete_handler.cpp
+    src/handlers/user_add_handler.cpp
+    src/handlers/user_delete_handler.cpp
 )
 
 target_include_directories(masterclasses-service PRIVATE

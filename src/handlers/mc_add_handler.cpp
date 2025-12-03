@@ -16,6 +16,8 @@ namespace masterclasses::handlers {
 
 namespace {
 
+using ClusterHostType = userver::storages::postgres::ClusterHostType;
+
 const userver::storages::postgres::Query kInsertMasterclass{
     "INSERT INTO masterclasses "
     "(id, title, location, price, website, image_url) "
@@ -28,15 +30,15 @@ T ExtractRequired(const userver::formats::json::Value& json,
                   std::string_view field) {
   if (!json.HasMember(field)) {
     throw userver::server::handlers::ClientError(
-        userver::server::handlers::HandlerErrorCode::kInvalidArgument,
-        std::string{"missing field: "} + std::string{field});
+        userver::server::handlers::ExternalBody{
+            std::string{"missing field: "} + std::string{field}});
   }
   try {
     return json[field].As<T>();
   } catch (const std::exception& ex) {
     throw userver::server::handlers::ClientError(
-        userver::server::handlers::HandlerErrorCode::kInvalidArgument,
-        std::string{"invalid field "} + std::string{field} + ": " + ex.what());
+        userver::server::handlers::ExternalBody{
+            std::string{"invalid field "} + std::string{field} + ": " + ex.what()});
   }
 }
 
@@ -53,20 +55,18 @@ McAddHandler::McAddHandler(
 std::string McAddHandler::HandleRequestThrow(
     const userver::server::http::HttpRequest& request,
     userver::server::request::RequestContext&) const {
-  request.SetResponseContentType(
+  request.GetHttpResponse().SetContentType(
       userver::http::content_type::kApplicationJson);
 
   if (request.GetMethod() != userver::server::http::HttpMethod::kPost) {
     throw userver::server::handlers::ClientError(
-        userver::server::handlers::HandlerErrorCode::kInvalidArgument,
-        "mcadd expects POST requests");
+        userver::server::handlers::ExternalBody{"mcadd expects POST requests"});
   }
 
   const auto body = request.RequestBody();
   if (body.empty()) {
     throw userver::server::handlers::ClientError(
-        userver::server::handlers::HandlerErrorCode::kInvalidArgument,
-        "request body is empty");
+        userver::server::handlers::ExternalBody{"request body is empty"});
   }
 
   userver::formats::json::Value payload;
@@ -74,8 +74,8 @@ std::string McAddHandler::HandleRequestThrow(
     payload = userver::formats::json::FromString(body);
   } catch (const std::exception& ex) {
     throw userver::server::handlers::ClientError(
-        userver::server::handlers::HandlerErrorCode::kInvalidArgument,
-        std::string{"failed to parse JSON: "} + ex.what());
+        userver::server::handlers::ExternalBody{
+            std::string{"failed to parse JSON: "} + ex.what()});
   }
 
   const auto id = ExtractRequired<std::int64_t>(payload, "id");
@@ -86,7 +86,8 @@ std::string McAddHandler::HandleRequestThrow(
   const auto image_url = ExtractRequired<std::string>(payload, "image_url");
 
   const auto result = masterclasses_cluster_->Execute(
-      kInsertMasterclass, id, title, location, price, website, image_url);
+      ClusterHostType::kMaster, kInsertMasterclass, id, title, location, price,
+      website, image_url);
 
   userver::formats::json::ValueBuilder response;
   response["id"] = id;

@@ -1,10 +1,22 @@
 {
-  "postgresql": {
-    "masterclasses-db": {
-      "value": "postgresql://postgres:postgres@localhost:5433/masterclasses"
-    },
-    "users-db": {
-      "value": "postgresql://postgres:postgres@localhost:5434/users"
+  "postgresql_settings": {
+    "databases": {
+      "masterclasses-db": [
+        {
+          "shard_number": 0,
+          "hosts": [
+            "postgresql://postgres:postgres@localhost:5433/masterclasses"
+          ]
+        }
+      ],
+      "users-db": [
+        {
+          "shard_number": 0,
+          "hosts": [
+            "postgresql://postgres:postgres@localhost:5434/users"
+          ]
+        }
+      ]
     }
   }
 }

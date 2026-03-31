@@ -12,4 +12,4 @@ std::optional<std::string> NormalizeRuPhoneDigits(std::string_view raw);
 /// Канонический вид для хранения: +7 и 10 цифр после (без пробелов).
 std::optional<std::string> RuPhoneToCanonical(std::string_view raw);
 
-} // namespace masterclasses::utils
+}  // namespace masterclasses::utils

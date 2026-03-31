@@ -2,7 +2,7 @@ name: masterclasses_app
 description: Афиша мастер-классов (мобильное приложение).
 publish_to: 'none'
 # Версия для пользователя + versionCode для Play
-version: 1.0.1+4
+version: 1.0.1+5
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

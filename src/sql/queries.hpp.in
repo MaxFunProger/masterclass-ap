@@ -4,17 +4,23 @@
 
 namespace masterclasses::sql {
 
-inline const userver::storages::postgres::Query kSelectMasterclassesFiltered{
-    R"sql(@SQL_SELECT_MASTERCLASSES_FILTERED@)sql",
-    userver::storages::postgres::Query::Name{"select-masterclasses-filtered"}};
+inline const userver::storages::postgres::Query
+    kSelectMasterclassesFiltered{
+        R"sql(@SQL_SELECT_MASTERCLASSES_FILTERED@)sql",
+        userver::storages::postgres::Query::Name{
+            "select-masterclasses-filtered"}};
 
-inline const userver::storages::postgres::Query kSelectMasterclassesFilteredDateAsc{
-    R"sql(@SQL_SELECT_MASTERCLASSES_FILTERED_DATE_ASC@)sql",
-    userver::storages::postgres::Query::Name{"select-masterclasses-filtered-date-asc"}};
+inline const userver::storages::postgres::Query
+    kSelectMasterclassesFilteredDateAsc{
+        R"sql(@SQL_SELECT_MASTERCLASSES_FILTERED_DATE_ASC@)sql",
+        userver::storages::postgres::Query::Name{
+            "select-masterclasses-filtered-date-asc"}};
 
-inline const userver::storages::postgres::Query kSelectMasterclassesFilteredDateDesc{
-    R"sql(@SQL_SELECT_MASTERCLASSES_FILTERED_DATE_DESC@)sql",
-    userver::storages::postgres::Query::Name{"select-masterclasses-filtered-date-desc"}};
+inline const userver::storages::postgres::Query
+    kSelectMasterclassesFilteredDateDesc{
+        R"sql(@SQL_SELECT_MASTERCLASSES_FILTERED_DATE_DESC@)sql",
+        userver::storages::postgres::Query::Name{
+            "select-masterclasses-filtered-date-desc"}};
 
 inline const userver::storages::postgres::Query kInsertMasterclass{
     R"sql(@SQL_INSERT_MASTERCLASS@)sql",
@@ -26,11 +32,13 @@ inline const userver::storages::postgres::Query kDeleteMasterclass{
 
 inline const userver::storages::postgres::Query kSelectUserByPhone{
     R"sql(@SQL_SELECT_USER_BY_PHONE@)sql",
-    userver::storages::postgres::Query::Name{"select-user-by-phone-digits"}};
+    userver::storages::postgres::Query::Name{
+        "select-user-by-phone-digits"}};
 
 inline const userver::storages::postgres::Query kExistsUserByPhoneDigits{
     R"sql(@SQL_EXISTS_USER_BY_PHONE@)sql",
-    userver::storages::postgres::Query::Name{"exists-user-by-phone-digits"}};
+    userver::storages::postgres::Query::Name{
+        "exists-user-by-phone-digits"}};
 
 inline const userver::storages::postgres::Query kInsertUser{
     R"sql(@SQL_INSERT_USER@)sql",
@@ -58,6 +66,7 @@ inline const userver::storages::postgres::Query kSelectFavorites{
 
 inline const userver::storages::postgres::Query kSelectMasterclassesByIds{
     R"sql(@SQL_SELECT_MASTERCLASSES_BY_IDS@)sql",
-    userver::storages::postgres::Query::Name{"select-masterclasses-by-ids"}};
+    userver::storages::postgres::Query::Name{
+        "select-masterclasses-by-ids"}};
 
 }  // namespace masterclasses::sql

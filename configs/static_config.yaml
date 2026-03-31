@@ -109,11 +109,6 @@ components_manager:
       task_processor: main-task-processor
       method: GET,POST,DELETE
 
-    handler-static-images:
-      path: /static/images/*
-      task_processor: main-task-processor
-      method: GET
-
     fs-cache-component:
       dir: static
       fs-task-processor: fs-task-processor

@@ -67,7 +67,6 @@ add_executable(masterclasses-service
     src/handlers/user_delete_handler.cpp
     src/handlers/user_profile_handler.cpp
     src/handlers/user_favorites_handler.cpp
-    src/handlers/static_image_handler.cpp
     src/utils/phone.cpp
 )
 

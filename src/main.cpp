@@ -4,7 +4,6 @@
 #include "handlers/mc_delete_handler.hpp"
 #include "handlers/mc_list_handler.hpp"
 #include "handlers/ping_handler.hpp"
-#include "handlers/static_image_handler.hpp"
 #include "handlers/user_delete_handler.hpp"
 #include "handlers/user_favorites_handler.hpp"
 #include "handlers/user_profile_handler.hpp"
@@ -42,7 +41,6 @@ int main(int argc, char* argv[]) {
             .Append<masterclasses::handlers::UserDeleteHandler>()
             .Append<masterclasses::handlers::UserProfileHandler>()
             .Append<masterclasses::handlers::UserFavoritesHandler>()
-            .Append<masterclasses::handlers::StaticImageHandler>()
             .Append<userver::components::FsCache>("fs-cache-component")
             .Append<userver::server::handlers::HttpHandlerStatic>();
 

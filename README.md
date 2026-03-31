@@ -58,16 +58,6 @@ Flutter app ──► Backend :80 ──► PostgreSQL :5432
 
 Остановка: `docker compose down`. Сброс БД: `docker compose down -v`.
 
-### Импорт данных
-
-После запуска контейнеров:
-
-```bash
-./scripts/load_masterclasses_and_images.sh
-```
-
-Скрипт импортирует `data.csv` через API, скачивает фото с Google Drive в `static/images/` и обновляет ссылки в БД.
-
 ## Сборка бэкенда на хосте
 
 Зависимости: CMake ≥ 3.20, C++20 (gcc-12+ / clang-15), userver (core + postgresql), libpq-dev.
@@ -84,21 +74,7 @@ DSN для локального запуска — `configs/secdist.json` (по 
 
 ## Сборка Flutter-приложения
 
-```bash
-cd frontend
-flutter pub get
-flutter build apk
-```
-
-Или через скрипт: `./scripts/build_android_apk.sh` (включает генерацию иконки).
-
-Подключение к нестандартному хосту/порту:
-
-```bash
-flutter build apk --dart-define=API_HOST=<ip> --dart-define=API_PORT=8080
-```
-
-Параметры `--dart-define`:
+Через скрипт: `./scripts/build_android_apk.sh`
 
 | Параметр | По умолчанию | Назначение |
 |----------|-------------|-----------|
@@ -109,7 +85,7 @@ flutter build apk --dart-define=API_HOST=<ip> --dart-define=API_PORT=8080
 
 Подпись release для Google Play — см. `frontend/README.md`.
 
-## Агент (sidecar)
+## Агент чат-бот
 
 Без Docker:
 
@@ -171,4 +147,4 @@ flutter build apk --dart-define=API_HOST=<ip> --dart-define=API_PORT=8080
 
 ## Дополнительная документация
 
-- `frontend/README.md` — иконка, подпись APK, iOS, `--dart-define`
+- `frontend/README.md`

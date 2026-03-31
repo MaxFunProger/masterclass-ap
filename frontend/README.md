@@ -49,8 +49,6 @@ lib/
 
 ## Подключение к бэкенду
 
-Хост и порт задаются через `--dart-define` при сборке:
-
 | Параметр | По умолчанию | Назначение |
 |----------|-------------|-----------|
 | `API_HOST` | debug: `10.0.2.2` (эмулятор); release: прод | Хост бэкенда |
@@ -58,22 +56,8 @@ lib/
 | `CHAT_HOST` | тот же, что `API_HOST` | Хост агента |
 | `CHAT_PORT` | `5000` | Порт агента |
 
-Пример для нестандартного порта:
-
-```bash
-flutter run --dart-define=API_HOST=<ip> --dart-define=API_PORT=8080
-```
-
-Без `--dart-define` release-сборка использует порт 80 (бэкенд) и 5000 (чат).
-
-Картинки мастер-классов: поле `image_url` из JSON. Относительные пути дополняются базовым URL бэкенда (`ApiClient.resolveImageUrl`), абсолютные используются как есть.
-
 ## Сборка
 
-```bash
-cd frontend
-flutter pub get
-flutter build apk
-```
+Из корня репозитория: `./scripts/build_android_apk.sh`
 
-Или через скрипт из корня репозитория: `./scripts/build_android_apk.sh` (включает генерацию иконки).
+Для генерации бандла в google play: `./scripts/build_android_aab.sh`

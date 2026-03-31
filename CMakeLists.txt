@@ -20,9 +20,6 @@ string(STRIP "${_tmp}" SQL_SELECT_MASTERCLASSES_FILTERED_DATE_DESC)
 file(READ src/sql/insert_masterclass.sql _tmp)
 string(STRIP "${_tmp}" SQL_INSERT_MASTERCLASS)
 
-file(READ src/sql/insert_masterclass_bulk.sql _tmp)
-string(STRIP "${_tmp}" SQL_INSERT_MASTERCLASS_BULK)
-
 file(READ src/sql/delete_masterclass.sql _tmp)
 string(STRIP "${_tmp}" SQL_DELETE_MASTERCLASS)
 
@@ -64,7 +61,6 @@ add_executable(masterclasses-service
     src/handlers/ping_handler.cpp
     src/handlers/mc_list_handler.cpp
     src/handlers/mc_add_handler.cpp
-    src/handlers/mc_add_bulk_handler.cpp
     src/handlers/mc_delete_handler.cpp
     src/handlers/auth_register_handler.cpp
     src/handlers/auth_login_handler.cpp

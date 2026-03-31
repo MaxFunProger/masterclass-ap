@@ -79,11 +79,6 @@ components_manager:
       task_processor: main-task-processor
       method: POST
 
-    handler-mcaddbulk:
-      path: /mcadd/bulk
-      task_processor: main-task-processor
-      method: POST
-
     handler-mcdelete:
       path: /mcdelete
       task_processor: main-task-processor

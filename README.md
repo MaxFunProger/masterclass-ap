@@ -130,7 +130,6 @@ flutter build apk --dart-define=API_HOST=<ip> --dart-define=API_PORT=8080
 | GET | `/ping` | Healthcheck |
 | GET | `/mclist` | Список мастер-классов с фильтрами и пагинацией |
 | POST | `/mcadd` | Добавить мастер-класс |
-| POST | `/mcadd/bulk` | Массовое добавление |
 | DELETE | `/mcdelete?id=` | Удалить мастер-класс |
 | POST | `/register` | Регистрация (phone, full_name, password) |
 | POST | `/login` | Авторизация (phone, password) → user_id |

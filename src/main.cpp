@@ -1,5 +1,4 @@
 #include "handlers/mc_add_handler.hpp"
-#include "handlers/mc_add_bulk_handler.hpp"
 #include "handlers/mc_delete_handler.hpp"
 #include "handlers/mc_list_handler.hpp"
 #include "handlers/auth_register_handler.hpp"
@@ -36,7 +35,6 @@ int main(int argc, char* argv[]) {
                             .Append<masterclasses::handlers::PingHandler>()
                             .Append<masterclasses::handlers::McListHandler>()
                             .Append<masterclasses::handlers::McAddHandler>()
-                            .Append<masterclasses::handlers::McAddBulkHandler>()
                             .Append<masterclasses::handlers::McDeleteHandler>()
                             .Append<masterclasses::handlers::AuthRegisterHandler>()
                             .Append<masterclasses::handlers::AuthLoginHandler>()

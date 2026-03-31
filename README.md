@@ -112,7 +112,7 @@ DSN для локального запуска — `configs/secdist.json` (по 
 | DELETE | `/userdelete?user_id=` | Удалить пользователя |
 | GET | `/user/profile?user_id=` | Профиль пользователя |
 | GET/POST/DELETE | `/user/favorites` | Избранное (user_id, masterclass_id) |
-| GET | `/static/images/*` | Фото мастер-классов |
+| GET | `/static/*` | Статические файлы (фото и др.), из in-memory кэша |
 
 ### GET /mclist — параметры фильтрации
 

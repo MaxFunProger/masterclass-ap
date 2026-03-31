@@ -250,114 +250,99 @@ def _extract_scalar_from_schema_leak(v: Any) -> tuple[Any, bool]:
     return v, False
 
 
+def _to_int(v: Any) -> int | None:
+    """Coerce to int, rejecting bools, blanks, and schema leaks."""
+    if isinstance(v, bool) or _looks_like_tool_schema_leak(v):
+        return None
+    if isinstance(v, int):
+        return v
+    if isinstance(v, float):
+        return int(v)
+    if isinstance(v, str):
+        s = v.strip()
+        if _is_blank_query_value(s) or s.startswith("{"):
+            return None
+        try:
+            return int(float(s))
+        except ValueError:
+            return None
+    return None
+
+
+def _to_float(v: Any) -> float | None:
+    """Coerce to float, rejecting bools, blanks, and schema leaks."""
+    if isinstance(v, bool) or _looks_like_tool_schema_leak(v):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        s = v.strip().replace(",", ".")
+        if _is_blank_query_value(s) or s.startswith("{"):
+            return None
+        try:
+            return float(s)
+        except ValueError:
+            return None
+    return None
+
+
+def _to_str(v: Any) -> str | None:
+    """Coerce to str, rejecting dicts, lists, blanks, and schema leaks."""
+    if _looks_like_tool_schema_leak(v) or isinstance(v, (dict, list)):
+        return None
+    s = str(v).strip()
+    if _is_blank_query_value(s) or _looks_like_tool_schema_leak(s):
+        return None
+    return s
+
+
 def _sanitize_search_masterclasses_args(args: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(args, dict):
         return {}
-    recovered: list[str] = []
+
+    # First pass: recover scalars from schema-leaked dicts (Yandex GPT bug).
     work: dict[str, Any] = {}
     for k, v in args.items():
         u, did = _extract_scalar_from_schema_leak(v)
         if did:
-            recovered.append(k)
+            logger.info("search_masterclasses: recovered scalar for %s from schema-like value", k)
         work[k] = u
-    if recovered:
-        logger.info(
-            "search_masterclasses: recovered scalar from schema-like value (default) for: %s",
-            sorted(recovered),
-        )
 
     out: dict[str, Any] = {}
 
-    def _int_val(v: Any) -> int | None:
-        v, _ = _extract_scalar_from_schema_leak(v)
-        if _looks_like_tool_schema_leak(v):
-            return None
-        if isinstance(v, bool):
-            return None
-        if isinstance(v, int) and not isinstance(v, bool):
-            return int(v)
-        if isinstance(v, float):
-            return int(v)
-        if isinstance(v, str):
-            s = v.strip()
-            if _is_blank_query_value(s) or s.startswith("{"):
-                return None
-            try:
-                return int(float(s))
-            except ValueError:
-                return None
-        return None
+    # Integers with bounds.
+    for key, lo in [("n", 1), ("offset", 0), ("min_age", 0)]:
+        val = _to_int(work.get(key))
+        if val is not None and val >= lo and (key != "n" or val <= 100):
+            out[key] = val
 
-    def _float_val(v: Any) -> float | None:
-        v, _ = _extract_scalar_from_schema_leak(v)
-        if _looks_like_tool_schema_leak(v):
-            return None
-        if isinstance(v, bool):
-            return None
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
-            return float(v)
-        if isinstance(v, str):
-            s = v.strip().replace(",", ".")
-            if _is_blank_query_value(s) or s.startswith("{"):
-                return None
-            try:
-                return float(s)
-            except ValueError:
-                return None
-        return None
+    # Floats (non-negative).
+    for key in ("min_price", "max_price", "min_rating"):
+        val = _to_float(work.get(key))
+        if val is not None and val >= 0:
+            out[key] = val
 
-    def _str_val(v: Any) -> str | None:
-        v, _ = _extract_scalar_from_schema_leak(v)
-        if _looks_like_tool_schema_leak(v):
-            return None
-        if isinstance(v, (dict, list)):
-            return None
-        s = str(v).strip()
-        if _is_blank_query_value(s) or _looks_like_tool_schema_leak(s):
-            return None
-        return s
+    # Strings.
+    for key in ("category", "audience", "tags", "format", "company", "exclude_ids"):
+        val = _to_str(work.get(key))
+        if val is not None:
+            out[key] = val
 
-    if (n := _int_val(work.get("n"))) is not None and 1 <= n <= 100:
-        out["n"] = n
-    if (off := _int_val(work.get("offset"))) is not None and off >= 0:
-        out["offset"] = off
-    if (ma := _int_val(work.get("min_age"))) is not None and ma >= 0:
-        out["min_age"] = ma
+    # ISO dates.
+    for key in ("event_date_from", "event_date_to"):
+        val = _to_str(work.get(key))
+        if val is not None and _ISO_DATE_RE.match(val):
+            out[key] = val
 
-    for fk in ("min_price", "max_price", "min_rating"):
-        if (fv := _float_val(work.get(fk))) is not None and fv >= 0:
-            out[fk] = fv
-
-    for sk in ("category", "audience", "tags", "format", "company", "exclude_ids"):
-        if (sv := _str_val(work.get(sk))) is not None:
-            out[sk] = sv
-
-    for dk in ("event_date_from", "event_date_to"):
-        if (dv := _str_val(work.get(dk))) is not None and _ISO_DATE_RE.match(dv):
-            out[dk] = dv
-
-    df = out.get("event_date_from")
-    dt = out.get("event_date_to")
-    if (
-        isinstance(df, str)
-        and isinstance(dt, str)
-        and _ISO_DATE_RE.match(df)
-        and _ISO_DATE_RE.match(dt)
-        and df > dt
-    ):
+    # Swap reversed dates.
+    df, dt = out.get("event_date_from"), out.get("event_date_to")
+    if isinstance(df, str) and isinstance(dt, str) and df > dt:
         out["event_date_from"], out["event_date_to"] = dt, df
 
-    so = _str_val(work.get("sort_order"))
+    # Sort order (enum).
+    so = _to_str(work.get("sort_order"))
     if so in ("date_asc", "date_desc"):
         out["sort_order"] = so
-
-    dropped = set(work.keys()) - set(out.keys())
-    noise = {k for k in dropped if k in work and _looks_like_tool_schema_leak(work.get(k))}
-    if noise:
-        logger.warning(
-            "search_masterclasses: still dropped schema-leaked args (no usable default): %s",
-            sorted(noise),
-        )
 
     return out
 
@@ -440,12 +425,39 @@ def _user_blob_has_date_preference(blob: str) -> bool:
     )
 
 
+_CLARIFICATION_RULES: list[tuple[str, Any, list[str]]] = [
+    # (regex on assistant question, user-answer detector, keys to drop)
+    (
+        r"(?i)(бюджет|сколько\s+готов|цен|стоим|лимит|до\s+скольки|сколько\s+денег|"
+        r"budget|price\s+range|how\s+much)",
+        _user_blob_has_price,
+        ["max_price", "min_price"],
+    ),
+    (
+        r"(?i)(возраст|сколько\s+тебе\s+лет|лет\s+тебе|сколько\s+лет|"
+        r"\bage\b|how\s+old|years?\s+old)",
+        _user_blob_has_age,
+        ["min_age"],
+    ),
+    (
+        r"(?i)(когда\s+(?:ты\s+)?(?:хотел|хочешь|планир|удобн)|"
+        r"желаем(ые)?\s+дат|в\s+как(ие|ой)\s+дн|на\s+как(ую|ие)\s+дат|"
+        r"как(ой|ие)\s+дат|в\s+какой\s+период|за\s+как(ие|ой)\s+срок|"
+        r"when\s+do\s+you\s+want|preferred\s+date|which\s+date)",
+        _user_blob_has_date_preference,
+        ["event_date_from", "event_date_to"],
+    ),
+    (
+        r"(?i)(кухн|кулинар|блюд|выпечк|рецепт|тип\s+ед|предпочтен.*кухн|"
+        r"cuisine|dishes?|cooking|baking|food\s+preference)",
+        _user_blob_has_cuisine_theme,
+        ["category"],
+    ),
+]
+
+
 def _apply_unanswered_clarification_filters(full_messages: list[dict], args: dict[str, Any]) -> dict[str, Any]:
-    """
-    If the bot asked for budget / age / dates / cuisine and the user did not answer
-    with that detail anywhere in recent messages, drop the corresponding DB filters
-    so we do not over-constrain with model-inferred values.
-    """
+    """Drop filters the bot asked about but the user never answered."""
     out = dict(args)
     prior_a = _prior_assistant_text(full_messages)
     if not prior_a:
@@ -454,45 +466,14 @@ def _apply_unanswered_clarification_filters(full_messages: list[dict], args: dic
     last_u = _last_user_message(full_messages)
     blob = _recent_user_text(full_messages, max_chunks=10)
 
-    if re.search(
-        r"(?i)(бюджет|сколько\s+готов|цен|стоим|лимит|до\s+скольки|сколько\s+денег|"
-        r"budget|price\s+range|how\s+much)",
-        prior_a,
-    ):
-        if not _user_blob_has_price(blob) and not re.search(r"\d{3,5}", last_u):
-            if out.pop("max_price", None) is not None or out.pop("min_price", None) is not None:
-                logger.info("Dropped price filters: user did not answer budget question")
-
-    if re.search(
-        r"(?i)(возраст|сколько\s+тебе\s+лет|лет\s+тебе|сколько\s+лет|"
-        r"\bage\b|how\s+old|years?\s+old)",
-        prior_a,
-    ):
-        if not _user_blob_has_age(blob) and not re.search(
-            r"(?i)\b(?:[1-9]\d?|100)\b", last_u
-        ):
-            if out.pop("min_age", None) is not None:
-                logger.info("Dropped min_age: user did not answer age question")
-
-    if re.search(
-        r"(?i)(когда\s+(?:ты\s+)?(?:хотел|хочешь|планир|удобн)|"
-        r"желаем(ые)?\s+дат|в\s+как(ие|ой)\s+дн|на\s+как(ую|ие)\s+дат|"
-        r"как(ой|ие)\s+дат|в\s+какой\s+период|за\s+как(ие|ой)\s+срок|"
-        r"when\s+do\s+you\s+want|preferred\s+date|which\s+date)",
-        prior_a,
-    ):
-        if not _user_blob_has_date_preference(blob) and not _user_blob_has_date_preference(last_u):
-            if out.pop("event_date_from", None) is not None or out.pop("event_date_to", None) is not None:
-                logger.info("Dropped event_date_from/to: user did not answer date question")
-
-    if re.search(
-        r"(?i)(кухн|кулинар|блюд|выпечк|рецепт|тип\s+ед|предпочтен.*кухн|"
-        r"cuisine|dishes?|cooking|baking|food\s+preference)",
-        prior_a,
-    ):
-        if not _user_blob_has_cuisine_theme(blob) and not _user_blob_has_cuisine_theme(last_u):
-            if out.pop("category", None) is not None:
-                logger.info("Dropped category: user did not answer cuisine/theme question")
+    for question_re, user_answered_fn, keys in _CLARIFICATION_RULES:
+        if not re.search(question_re, prior_a):
+            continue
+        if user_answered_fn(blob) or user_answered_fn(last_u):
+            continue
+        dropped = [k for k in keys if out.pop(k, None) is not None]
+        if dropped:
+            logger.info("Dropped %s: user did not answer clarification", dropped)
 
     return out
 
@@ -1000,6 +981,51 @@ def _sanitize_user_visible_reply(text: str) -> str:
     return out
 
 
+_TOOL_PAYLOAD_ERROR = (
+    "Связь с базой мастер-классов временно недоступна (ошибка сервера). "
+    "Скажи пользователю по-русски попробовать позже, не выдумывай список.\n"
+)
+_TOOL_PAYLOAD_EMPTY = (
+    "В базе по этим фильтрам ничего не найдено (returned=0, masterclasses пустой). "
+    "Скажи пользователю по-русски, что подходящих мастер-классов нет; "
+    "не придумывай названия, цены и даты.\n"
+)
+_TOOL_PAYLOAD_REUSE_NOTE = (
+    "Внимание: повторный поиск вернул 0 строк (часто из\u2011за exclude_ids), но пользователь просит контакты "
+    "или выбирает вариант после уже показанного списка. Ниже masterclasses из предыдущего успешного "
+    "ответа инструмента в этом чате - обязательно перечисли контакты из полей website, organizer, "
+    "location, contact_tg, contact_vk, contact_phone; не говори, что мастер-классов нет или нет доступа.\n"
+)
+_TOOL_PAYLOAD_OK = (
+    "Результат поиска (JSON ниже). Поля website, contact_tg, contact_vk, contact_phone и т.д. - только если в следующем "
+    "сообщении пользователь спросит про запись/контакты; в обычной выдаче подборки их не перечисляй.\n"
+    "Ответь по-русски: 1-3 мастер-класса. Формат: короткое вступление, пустая строка, затем каждый вариант - отдельный абзац "
+    "(пустая строка между абзацами). В абзаце: строка 1 - title в русских кавычках \u00abёлочки\u00bb точно как в JSON; строка 2 - цена; строка 3 - дата. "
+    "Без текста из description, без \"почему подходит\", без контактов и ссылок - приложение покажет фото и \"Открыть карточку\". "
+    "Не используй Markdown (звёздочки, подчёркивания для жирного/курсива) в ответе пользователю. "
+    "Только записи из masterclasses. Не выводи сырой JSON, не пиши [search_masterclasses].\n"
+)
+
+# Rejection prompts when the model misbehaves (keyed for readability).
+_REJECT_RAW_JSON = (
+    "Нельзя отвечать массивом JSON с полями вроде name/description/price. "
+    "Вызови search_masterclasses с нужными фильтрами (для фотографии - category с токенами из промпта), "
+    "затем опиши 1-3 варианта **обычным русским текстом**: название, цена, дата, без JSON и без квадратных скобок."
+)
+_REJECT_STALL = (
+    "Немедленно вызови search_masterclasses: category=cooking_baking для кулинарии, "
+    "max_price и min_age из переписки; event_date_from/event_date_to в YYYY-MM-DD, если пользователь "
+    "назвал сроки (иначе опусти). sort_order=date_asc по желанию. "
+    "Перечисли 1-3 найденных мастер-класса с ценой - без фраз \"ищу\" и \"подожди\"."
+)
+_REJECT_FAKE_LISTINGS = (
+    "Запрещено перечислять мастер-классы с ценами без вызова search_masterclasses. "
+    "Сейчас вызови search_masterclasses с нужными параметрами "
+    "(для еды и готовки - category=cooking_baking). Ответь пользователю только "
+    "по полю masterclasses из JSON ответа инструмента."
+)
+
+
 def run_chat_with_tools(
     messages: list[dict],
     api_key: str,
@@ -1068,42 +1094,20 @@ def run_chat_with_tools(
                 text = ""
 
         if not tool_calls and text:
+            # Reject bad model outputs and re-steer.
+            rejection = None
             if _is_raw_json_masterclass_list(text):
-                logger.warning("Rejecting user-visible reply: raw JSON array of masterclasses (use tool + Russian text)")
-                full_messages.append({
-                    "role": "user",
-                    "content": (
-                        "Нельзя отвечать массивом JSON с полями вроде name/description/price. "
-                        "Вызови search_masterclasses с нужными фильтрами (для фотографии - category с токенами из промпта), "
-                        "затем опиши 1-3 варианта **обычным русским текстом**: название, цена, дата, без JSON и без квадратных скобок."
-                    ),
-                })
+                rejection = _REJECT_RAW_JSON
+            elif _is_stall_without_results(text):
+                rejection = _REJECT_STALL
+            elif _looks_like_mc_recommendations_without_tool(text) and not _had_tool_result_recently(full_messages):
+                rejection = _REJECT_FAKE_LISTINGS
+
+            if rejection:
+                logger.warning("Rejecting model output, re-steering")
+                full_messages.append({"role": "user", "content": rejection})
                 continue
-            if _is_stall_without_results(text):
-                full_messages.append({
-                    "role": "user",
-                    "content": (
-                        "Немедленно вызови search_masterclasses: category=cooking_baking для кулинарии, "
-                        "max_price и min_age из переписки; event_date_from/event_date_to в YYYY-MM-DD, если пользователь "
-                        "назвал сроки (иначе опусти). sort_order=date_asc по желанию. "
-                        "Перечисли 1-3 найденных мастер-класса с ценой - без фраз \"ищу\" и \"подожди\"."
-                    ),
-                })
-                continue
-            if _looks_like_mc_recommendations_without_tool(text) and not _had_tool_result_recently(
-                full_messages
-            ):
-                logger.warning("Rejecting assistant text that looks like MC listings without a tool round")
-                full_messages.append({
-                    "role": "user",
-                    "content": (
-                        "Запрещено перечислять мастер-классы с ценами без вызова search_masterclasses. "
-                        "Сейчас вызови search_masterclasses с нужными параметрами "
-                        "(для еды и готовки - category=cooking_baking). Ответь пользователю только "
-                        "по полю masterclasses из JSON ответа инструмента."
-                    ),
-                })
-                continue
+
             cleaned = _sanitize_user_visible_reply(text)
             if cleaned:
                 return _with_shown(cleaned, full_messages, client_shown_ids, pending_mc_preview)
@@ -1147,41 +1151,17 @@ def run_chat_with_tools(
             )
             executed = True
             nret = int(result_data.get("returned") or 0)
+            result_json = json.dumps(result_data, ensure_ascii=False)
+
             if result_data.get("error"):
                 pending_mc_preview = []
-                tool_payload = (
-                    "Связь с базой мастер-классов временно недоступна (ошибка сервера). "
-                    "Скажи пользователю по-русски попробовать позже, не выдумывай список.\n"
-                    + json.dumps(result_data, ensure_ascii=False)
-                )
+                tool_payload = _TOOL_PAYLOAD_ERROR + result_json
             elif nret == 0:
                 pending_mc_preview = []
-                tool_payload = (
-                    "В базе по этим фильтрам ничего не найдено (returned=0, masterclasses пустой). "
-                    "Скажи пользователю по-русски, что подходящих мастер-классов нет; "
-                    "не придумывай названия, цены и даты.\n"
-                    + json.dumps(result_data, ensure_ascii=False)
-                )
+                tool_payload = _TOOL_PAYLOAD_EMPTY + result_json
             else:
-                reuse_note = ""
-                if result_data.get("reuse_from_previous_search_in_chat"):
-                    reuse_note = (
-                        "Внимание: повторный поиск вернул 0 строк (часто из\u2011за exclude_ids), но пользователь просит контакты "
-                        "или выбирает вариант после уже показанного списка. Ниже masterclasses из предыдущего успешного "
-                        "ответа инструмента в этом чате - обязательно перечисли контакты из полей website, organizer, "
-                        "location, contact_tg, contact_vk, contact_phone; не говори, что мастер-классов нет или нет доступа.\n"
-                    )
-                tool_payload = (
-                    reuse_note
-                    + "Результат поиска (JSON ниже). Поля website, contact_tg, contact_vk, contact_phone и т.д. - только если в следующем "
-                    "сообщении пользователь спросит про запись/контакты; в обычной выдаче подборки их не перечисляй.\n"
-                    "Ответь по-русски: 1-3 мастер-класса. Формат: короткое вступление, пустая строка, затем каждый вариант - отдельный абзац "
-                    "(пустая строка между абзацами). В абзаце: строка 1 - title в русских кавычках \u00abёлочки\u00bb точно как в JSON; строка 2 - цена; строка 3 - дата. "
-                    "Без текста из description, без \"почему подходит\", без контактов и ссылок - приложение покажет фото и \"Открыть карточку\". "
-                    "Не используй Markdown (звёздочки, подчёркивания для жирного/курсива) в ответе пользователю. "
-                    "Только записи из masterclasses. Не выводи сырой JSON, не пиши [search_masterclasses].\n"
-                    + json.dumps(result_data, ensure_ascii=False)
-                )
+                reuse_note = _TOOL_PAYLOAD_REUSE_NOTE if result_data.get("reuse_from_previous_search_in_chat") else ""
+                tool_payload = reuse_note + _TOOL_PAYLOAD_OK + result_json
                 mcs = result_data.get("masterclasses") or []
                 pending_mc_preview = [r for r in mcs if isinstance(r, dict)][:5]
             full_messages.append({

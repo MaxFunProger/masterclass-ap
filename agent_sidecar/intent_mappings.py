@@ -18,14 +18,29 @@ except ImportError as e:  # pragma: no cover
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "query_mappings.yaml"
 
 
+def _matches_any_regex(patterns: list[str], text: str) -> bool:
+    """Return True if *text* matches any regex in *patterns* (case-insensitive)."""
+    for pat in patterns:
+        if not isinstance(pat, str):
+            continue
+        try:
+            if re.search(pat, text, re.I):
+                return True
+        except re.error as e:
+            logger.warning("Bad regex pattern %r: %s", pat, e)
+    return False
+
+
 class IntentMappings:
     def __init__(self, data: dict[str, Any]):
         self._raw = data or {}
         self.version = self._raw.get("version", 0)
         self.category_aliases: dict[str, str] = dict(self._raw.get("category_aliases") or {})
         self.intent_mappings: list[dict[str, Any]] = list(self._raw.get("intent_mappings") or [])
+
         bsm = self._raw.get("broad_search_markers") or {}
         self.broad_search_markers: list[str] = list(bsm.get("patterns") or [])
+
         odm = self._raw.get("optional_decline_markers") or {}
         self.optional_decline_markers: list[str] = list(odm.get("patterns") or [])
         self.optional_decline_drop: list[str] = list(
@@ -59,20 +74,11 @@ class IntentMappings:
                 return val
         return cat
 
-    @staticmethod
-    def _intent_matches(intent: dict[str, Any], user_blob: str, blob_lower: str) -> bool:
-        for pat in intent.get("patterns") or []:
-            if not isinstance(pat, str):
-                continue
-            try:
-                if re.search(pat, user_blob, re.I):
-                    return True
-            except re.error as e:
-                logger.warning("Bad regex in intent %s: %s - %s", intent.get("id"), pat, e)
+    def _intent_matches(self, intent: dict[str, Any], user_blob: str, blob_lower: str) -> bool:
+        if _matches_any_regex(intent.get("patterns") or [], user_blob):
+            return True
         for kw in intent.get("keywords") or []:
-            if not isinstance(kw, str):
-                continue
-            if kw.lower() in blob_lower:
+            if isinstance(kw, str) and kw.lower() in blob_lower:
                 return True
         return False
 
@@ -93,12 +99,11 @@ class IntentMappings:
                 continue
 
             for key in ("category", "audience", "format", "company"):
-                if key not in mclist or mclist[key] is None:
+                val = mclist.get(key)
+                if val is None:
                     continue
-                val = str(mclist[key]).strip()
-                if not val:
-                    continue
-                if not out.get(key):
+                val = str(val).strip()
+                if val and not out.get(key):
                     out[key] = val
                     logger.info("intent %s: set %s=%s", iid, key, val)
 
@@ -115,19 +120,8 @@ class IntentMappings:
 
         return out
 
-    def matches_broad_search_marker(self, last_user_message: str) -> bool:
-        if not last_user_message or not str(last_user_message).strip():
-            return False
-        text = str(last_user_message).strip()
-        for pat in self.broad_search_markers:
-            if not isinstance(pat, str):
-                continue
-            try:
-                if re.search(pat, text, re.I):
-                    return True
-            except re.error as e:
-                logger.warning("Bad regex in broad_search_markers: %s - %s", pat, e)
-        return False
+    def matches_broad_search_marker(self, text: str) -> bool:
+        return bool(text and text.strip() and _matches_any_regex(self.broad_search_markers, text.strip()))
 
     def apply_broad_search_override(self, last_user_message: str, args: dict[str, Any]) -> dict[str, Any]:
         if not self.matches_broad_search_marker(last_user_message):
@@ -136,36 +130,20 @@ class IntentMappings:
         had_cat = out.pop("category", None)
         out.pop("tags", None)
         if had_cat:
-            logger.info(
-                "broad_search: cleared category=%s and tags (user declined theme filter)",
-                had_cat,
-            )
+            logger.info("broad_search: cleared category=%s and tags (user declined theme filter)", had_cat)
         else:
             logger.info("broad_search: cleared tags only (no category in args)")
         return out
 
-    def matches_optional_decline_marker(self, last_user_message: str) -> bool:
-        if not last_user_message or not str(last_user_message).strip():
-            return False
-        text = str(last_user_message).strip()
-        for pat in self.optional_decline_markers:
-            if not isinstance(pat, str):
-                continue
-            try:
-                if re.search(pat, text, re.I):
-                    return True
-            except re.error as e:
-                logger.warning("Bad regex in optional_decline_markers: %s - %s", pat, e)
-        return False
+    def matches_optional_decline_marker(self, text: str) -> bool:
+        return bool(text and text.strip() and _matches_any_regex(self.optional_decline_markers, text.strip()))
 
     def apply_optional_decline_override(self, last_user_message: str, args: dict[str, Any]) -> dict[str, Any]:
         if not self.matches_optional_decline_marker(last_user_message):
             return dict(args)
         out = dict(args)
         for key in self.optional_decline_drop:
-            if not isinstance(key, str):
-                continue
-            if out.pop(key, None) is not None:
+            if isinstance(key, str) and out.pop(key, None) is not None:
                 logger.info("optional_decline: dropped %s (user said detail does not matter)", key)
         return out
 

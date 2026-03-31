@@ -1,0 +1,13 @@
+build
+.git
+.github
+frontend
+venv
+.venv*
+agent_sidecar
+node_modules
+*.log
+nohup.out
+docs
+*.docx
+data.csv

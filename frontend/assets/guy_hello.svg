@@ -1,0 +1,16 @@
+<svg width="375" height="336" viewBox="0 0 375 336" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="260.461" y="75.1328" width="60" height="167" rx="30" transform="rotate(40.2782 260.461 75.1328)" fill="#3CA21D"/>
+<rect x="59" y="113.926" width="60" height="167" rx="30" transform="rotate(-40.28 59 113.926)" fill="#3CA21D"/>
+<rect x="153" y="72" width="60" height="167" rx="30" fill="#3CA21D"/>
+<rect x="-30" y="156" width="435" height="309" rx="154.5" fill="#3CA21D"/>
+<path d="M211.5 194C233.14 214.331 259.207 213.678 278 194" stroke="black" stroke-width="7" stroke-linecap="round"/>
+<path d="M83 194C104.64 214.331 130.707 213.678 149.5 194" stroke="black" stroke-width="7" stroke-linecap="round"/>
+<path d="M70 217C139.216 271.818 228.475 271.953 290 217" stroke="black" stroke-width="8" stroke-linecap="round"/>
+<path d="M318.053 214.236C364.889 170.813 361.467 120.732 313.292 86.3292" stroke="black" stroke-width="7" stroke-linecap="round"/>
+<line x1="2.5" y1="-2.5" x2="34.273" y2="-2.5" transform="matrix(0.351814 0.93607 -0.948996 0.315289 305.203 68.1631)" stroke="#363636" stroke-width="5" stroke-linecap="round"/>
+<foreignObject x="259.603" y="0.719238" width="75.9644" height="74.0557"><div xmlns="http://www.w3.org/1999/xhtml" style="backdrop-filter:blur(2px);clip-path:url(#bgblur_0_338_24595_clip_path);height:100%;width:100%"></div></foreignObject><path data-figma-bg-blur-radius="4" d="M302.181 7.59534C319.45 10.2278 331.253 25.9109 328.725 42.4941C326.197 59.0774 310.257 70.5311 292.988 67.8987C275.72 65.2662 263.917 49.5831 266.445 32.9999C268.973 16.4166 284.913 4.96289 302.181 7.59534Z" fill="#D9D9D9" fill-opacity="0.11" stroke="#363636" stroke-width="5"/>
+<rect x="272.741" y="5" width="60" height="58" rx="29" transform="rotate(8.66765 272.741 5)" fill="black" fill-opacity="0.01"/>
+<defs>
+<clipPath id="bgblur_0_338_24595_clip_path" transform="translate(-259.603 -0.719238)"><path d="M302.181 7.59534C319.45 10.2278 331.253 25.9109 328.725 42.4941C326.197 59.0774 310.257 70.5311 292.988 67.8987C275.72 65.2662 263.917 49.5831 266.445 32.9999C268.973 16.4166 284.913 4.96289 302.181 7.59534Z"/>
+</clipPath></defs>
+</svg>

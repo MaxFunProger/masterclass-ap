@@ -1,4 +1,5 @@
 #include "handlers/mc_delete_handler.hpp"
+#include "sql/queries.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -10,17 +11,12 @@
 #include <userver/server/http/http_method.hpp>
 #include <userver/server/http/http_status.hpp>
 #include <userver/storages/postgres/component.hpp>
-#include <userver/storages/postgres/query.hpp>
 
 namespace masterclasses::handlers {
 
 namespace {
 
 using ClusterHostType = userver::storages::postgres::ClusterHostType;
-
-const userver::storages::postgres::Query kDeleteMasterclass{
-    "DELETE FROM masterclasses WHERE id = $1",
-    userver::storages::postgres::Query::Name{"delete-masterclass"}};
 
 std::int64_t ParseId(const userver::server::http::HttpRequest& request) {
   const auto id_str = request.GetArg("id");
@@ -45,8 +41,8 @@ McDeleteHandler::McDeleteHandler(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context)
     : HttpHandlerBase(config, context),
-      masterclasses_cluster_(
-          context.FindComponent<userver::components::Postgres>("masterclasses-db")
+      db_cluster_(
+          context.FindComponent<userver::components::Postgres>("app-db")
               .GetCluster()) {}
 
 std::string McDeleteHandler::HandleRequestThrow(
@@ -63,8 +59,8 @@ std::string McDeleteHandler::HandleRequestThrow(
 
   const auto id = ParseId(request);
 
-  const auto result = masterclasses_cluster_->Execute(
-      ClusterHostType::kMaster, kDeleteMasterclass, id);
+  const auto result = db_cluster_->Execute(
+      ClusterHostType::kMaster, sql::kDeleteMasterclass, id);
 
   userver::formats::json::ValueBuilder response;
   response["id"] = id;

@@ -25,9 +25,13 @@ class McAddBulkHandler final
       userver::server::request::RequestContext& context) const override;
 
  private:
-  userver::storages::postgres::ClusterPtr masterclasses_cluster_;
+  userver::storages::postgres::ClusterPtr db_cluster_;
 };
 
 }  // namespace masterclasses::handlers
+
+
+
+
 
 

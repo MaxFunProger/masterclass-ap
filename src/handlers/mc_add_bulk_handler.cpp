@@ -1,4 +1,5 @@
 #include "handlers/mc_add_bulk_handler.hpp"
+#include "sql/queries.hpp"
 
 #include <cstdint>
 #include <stdexcept>
@@ -12,20 +13,12 @@
 #include <userver/server/handlers/exceptions.hpp>
 #include <userver/server/http/http_method.hpp>
 #include <userver/storages/postgres/component.hpp>
-#include <userver/storages/postgres/query.hpp>
 
 namespace masterclasses::handlers {
 
 namespace {
 
 using ClusterHostType = userver::storages::postgres::ClusterHostType;
-
-const userver::storages::postgres::Query kInsertMasterclass{
-    "INSERT INTO masterclasses "
-    "(id, title, location, price, website, image_url) "
-    "VALUES ($1, $2, $3, $4, $5, $6) "
-    "ON CONFLICT (id) DO NOTHING",
-    userver::storages::postgres::Query::Name{"insert-masterclass-bulk"}};
 
 template <typename T>
 T ExtractRequired(const userver::formats::json::Value& json,
@@ -62,8 +55,8 @@ McAddBulkHandler::McAddBulkHandler(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context)
     : HttpHandlerBase(config, context),
-      masterclasses_cluster_(
-          context.FindComponent<userver::components::Postgres>("masterclasses-db")
+      db_cluster_(
+          context.FindComponent<userver::components::Postgres>("app-db")
               .GetCluster()) {}
 
 std::string McAddBulkHandler::HandleRequestThrow(
@@ -131,8 +124,8 @@ std::string McAddBulkHandler::HandleRequestThrow(
       userver::formats::json::Type::kArray);
 
   for (const auto& item : items) {
-    const auto result = masterclasses_cluster_->Execute(
-        ClusterHostType::kMaster, kInsertMasterclass, item.id, item.title,
+    const auto result = db_cluster_->Execute(
+        ClusterHostType::kMaster, sql::kInsertMasterclassBulk, item.id, item.title,
         item.location, item.price, item.website, item.image_url);
 
     userver::formats::json::ValueBuilder entry;
@@ -171,5 +164,4 @@ std::string McAddBulkHandler::HandleRequestThrow(
 }
 
 }  // namespace masterclasses::handlers
-
 

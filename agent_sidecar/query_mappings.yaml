@@ -1,0 +1,123 @@
+# =============================================================================
+# User language -> GET /mclist query parameters (sidecar / bot)
+# =============================================================================
+# Backend SQL matches:
+# - category: regex OR of comma-separated tokens (ILIKE)
+# - audience: same
+# - tags: additional_tags column, same matching
+# Канонические теги category - как в согласованном импорте (data.csv). Синонимы LLM ниже мапятся на них.
+# Сводка токенов — в SYSTEM_PROMPT (main.py)
+#
+# Основное сопоставление "что сказал пользователь -> category / format / ..." задаётся
+# в SYSTEM_PROMPT в agent_sidecar/main.py (модель сама выбирает параметры инструмента).
+#
+# intent_mappings: опциональный fallback (пусто по умолчанию). Можно добавить редкие
+# правила, если модель систематически ошибается.
+#
+# broad_search_markers / optional_decline_markers: страховочные эвристики на стороне
+# сервера (см. intent_mappings.py), не дублируют промпт.
+# =============================================================================
+
+version: 1
+
+broad_search_markers:
+ patterns:
+ - '(?i)предпочтени(й|я)\s+нет'
+ - '(?i)без\s+предпочтен'
+ - '(?i)никаких\s+предпочтен'
+ - '(?i)нет\s+предпочтен'
+ - '(?i)люб(ая|ой)\s+(тем|категор|кухн)'
+ - '(?i)любой\s+тип'
+ # Do NOT use bare "неважно" here - it matched when user only declined format/age (see optional_decline_markers).
+ - '(?i)вс[ёе]\s+равно'
+ - '(?i)no\s+preferences'
+ - '(?i)any\s+topic'
+
+# User declines optional details - drop those filters, keep category.
+# Patterns can match inside a longer message (e.g. budget + "остальное неважно").
+optional_decline_markers:
+ patterns:
+ - '(?i)^\s*это\s+неважно\.?\s*$'
+ - '(?i)^\s*неважно\.?\s*$'
+ - '(?i)^\s*без\s+разницы\.?\s*$'
+ - '(?i)^\s*не\s+важно\.?\s*$'
+ - '(?i)остальн(ое|ые)\s+неважно'
+ - '(?i)вс[ёе]\s+остальн(ое|ые)\s+неважно'
+ - '(?i)вс[ёе]\s+равно\s+неважно'
+ - '(?i)the\s+rest\s+doesn''t\s+matter'
+ - '(?i)the\s+rest\s+does\s+not\s+matter'
+ - '(?i)everything\s+else\s+(doesn''t\s+matter|is\s+unimportant)'
+ - '(?i)don''t\s+care\s+about\s+the\s+rest'
+ drop_params:
+ - format
+ - min_age
+ - event_date_from
+ - event_date_to
+
+# Free-text from model/user -> canonical category token in DB (нормализация после ответа LLM)
+category_aliases:
+ cooking: cooking_baking
+ cooking_baking: cooking_baking
+ baking: cooking_baking
+ food: cooking_baking
+ кулинария: cooking_baking
+ кулинарный: cooking_baking
+ design: design
+ дизайн: design
+ craft: craft_maker
+ craft_maker: craft_maker
+ рукодел: craft_maker
+ мейкер: craft_maker
+ drawing: drawing_painting
+ painting: drawing_painting
+ рисован: drawing_painting
+ живопис: drawing_painting
+ music: music
+ музык: music
+ вокал: music
+ dance: dance_performance
+ танц: dance_performance
+ сальса: dance_performance
+ бачата: dance_performance
+ standup: personal_dev
+ стендап: personal_dev
+ комик: personal_dev
+ comedy: personal_dev
+ tech: tech_coding
+ it: tech_coding
+ программ: tech_coding
+ ии: tech_coding
+ нейросет: tech_coding
+ tech_coding: tech_coding
+ tech_digital: tech_coding
+ coding: tech_coding
+ photo: photography
+ фото: photography
+ видео: photography
+ photo_video: photography
+ photography: photography
+ wellness: wellness_sport
+ спорт: wellness_sport
+ йог: wellness_sport
+ theater: theater_cinema
+ театр: theater_cinema
+ кино: theater_cinema
+ актерск: theater_cinema
+ beauty: beauty_fashion
+ бьюти: beauty_fashion
+ парфюм: beauty_fashion
+ аромат: beauty_fashion
+ fashion: beauty_fashion
+ флорист: home_garden
+ цветы: home_garden
+ растен: home_garden
+ сад: home_garden
+ home_garden: home_garden
+ personal: personal_dev
+ саморазвит: personal_dev
+ оратор: personal_dev
+ голос: personal_dev
+ personal_dev: personal_dev
+ beauty_fashion: beauty_fashion
+
+intent_mappings: []

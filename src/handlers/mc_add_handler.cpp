@@ -1,4 +1,5 @@
 #include "handlers/mc_add_handler.hpp"
+#include "sql/queries.hpp"
 
 #include <cstdint>
 #include <stdexcept>
@@ -10,7 +11,7 @@
 #include <userver/server/handlers/exceptions.hpp>
 #include <userver/server/http/http_method.hpp>
 #include <userver/storages/postgres/component.hpp>
-#include <userver/storages/postgres/query.hpp>
+#include <userver/utils/datetime.hpp>
 
 namespace masterclasses::handlers {
 
@@ -18,27 +19,40 @@ namespace {
 
 using ClusterHostType = userver::storages::postgres::ClusterHostType;
 
-const userver::storages::postgres::Query kInsertMasterclass{
-    "INSERT INTO masterclasses "
-    "(id, title, location, price, website, image_url) "
-    "VALUES ($1, $2, $3, $4, $5, $6) "
-    "ON CONFLICT (id) DO NOTHING",
-    userver::storages::postgres::Query::Name{"insert-masterclass"}};
-
 template <typename T>
-T ExtractRequired(const userver::formats::json::Value& json,
-                  std::string_view field) {
+T Extract(const userver::formats::json::Value& json, std::string_view field,
+          const T& default_value) {
   if (!json.HasMember(field)) {
-    throw userver::server::handlers::ClientError(
-        userver::server::handlers::ExternalBody{
-            std::string{"missing field: "} + std::string{field}});
+    return default_value;
   }
   try {
     return json[field].As<T>();
   } catch (const std::exception& ex) {
     throw userver::server::handlers::ClientError(
-        userver::server::handlers::ExternalBody{
-            std::string{"invalid field "} + std::string{field} + ": " + ex.what()});
+        userver::server::handlers::ExternalBody{"invalid field '" +
+                                                std::string{field} + "': " +
+                                                ex.what()});
+  }
+}
+
+std::string ExtractRequiredString(const userver::formats::json::Value& json,
+                                  std::string_view field) {
+  if (!json.HasMember(field)) {
+    throw userver::server::handlers::ClientError(
+        userver::server::handlers::ExternalBody{"missing field '" +
+                                                std::string{field} + "'"});
+  }
+  try {
+    auto value = json[field].As<std::string>();
+    if (value.empty()) {
+      throw std::runtime_error("must not be empty");
+    }
+    return value;
+  } catch (const std::exception& ex) {
+    throw userver::server::handlers::ClientError(
+        userver::server::handlers::ExternalBody{"invalid field '" +
+                                                std::string{field} + "': " +
+                                                ex.what()});
   }
 }
 
@@ -48,8 +62,8 @@ McAddHandler::McAddHandler(
     const userver::components::ComponentConfig& config,
     const userver::components::ComponentContext& context)
     : HttpHandlerBase(config, context),
-      masterclasses_cluster_(
-          context.FindComponent<userver::components::Postgres>("masterclasses-db")
+      db_cluster_(
+          context.FindComponent<userver::components::Postgres>("app-db")
               .GetCluster()) {}
 
 std::string McAddHandler::HandleRequestThrow(
@@ -60,7 +74,8 @@ std::string McAddHandler::HandleRequestThrow(
 
   if (request.GetMethod() != userver::server::http::HttpMethod::kPost) {
     throw userver::server::handlers::ClientError(
-        userver::server::handlers::ExternalBody{"mcadd expects POST requests"});
+        userver::server::handlers::ExternalBody{
+            "mcadd expects POST requests"});
   }
 
   const auto body = request.RequestBody();
@@ -78,28 +93,56 @@ std::string McAddHandler::HandleRequestThrow(
             std::string{"failed to parse JSON: "} + ex.what()});
   }
 
-  const auto id = ExtractRequired<std::int64_t>(payload, "id");
-  const auto title = ExtractRequired<std::string>(payload, "title");
-  const auto location = ExtractRequired<std::string>(payload, "location");
-  const auto price = ExtractRequired<double>(payload, "price");
-  const auto website = ExtractRequired<std::string>(payload, "website");
-  const auto image_url = ExtractRequired<std::string>(payload, "image_url");
+  const auto id = Extract<std::int64_t>(payload, "id", 0);
+  if (id <= 0) {
+      throw userver::server::handlers::ClientError(
+        userver::server::handlers::ExternalBody{"id must be positive"});
+  }
+  const auto title = ExtractRequiredString(payload, "title");
+  const auto location = Extract<std::string>(payload, "location", "Moscow");
+  const auto price = Extract<double>(payload, "price", 0.0);
+  const auto website = Extract<std::string>(payload, "website", "");
+  const auto image_url = ExtractRequiredString(payload, "image_url");
 
-  const auto result = masterclasses_cluster_->Execute(
-      ClusterHostType::kMaster, kInsertMasterclass, id, title, location, price,
-      website, image_url);
+  const auto format = Extract<std::string>(payload, "format", "offline");
+  const auto company = Extract<std::string>(payload, "company", "single");
+  const auto category = Extract<std::string>(payload, "category", "Other");
+  const auto min_age = Extract<int>(payload, "min_age", 0);
+  const auto rating = Extract<double>(payload, "rating", 5.0);
+  
+  const auto description = Extract<std::string>(payload, "description", "");
+  const auto duration = Extract<std::string>(payload, "duration", "");
+  const auto organizer = Extract<std::string>(payload, "organizer", "");
+  const auto contact_tg = Extract<std::string>(payload, "contact_tg", "");
+  const auto contact_vk = Extract<std::string>(payload, "contact_vk", "");
+  const auto contact_phone = Extract<std::string>(payload, "contact_phone", "");
+  const auto audience = Extract<std::string>(payload, "audience", "");
+  const auto additional_tags = Extract<std::string>(payload, "additional_tags", "");
+
+  std::string event_date;
+  if (payload.HasMember("event_date")) {
+      try {
+        event_date = payload["event_date"].As<std::string>();
+        if (event_date.empty()) event_date = "1970-01-01";
+      } catch (...) {
+          event_date = "1970-01-01";
+      }
+  } else {
+      event_date = "1970-01-01";
+  }
+
+  const auto result = db_cluster_->Execute(
+      ClusterHostType::kMaster, sql::kInsertMasterclass, id, title, location, price, website, image_url,
+      format, company, category, min_age, rating, 
+      description, event_date, duration, organizer, contact_tg, contact_vk, contact_phone, audience, additional_tags);
 
   userver::formats::json::ValueBuilder response;
   response["id"] = id;
-  response["title"] = title;
-
   if (result.RowsAffected() == 0) {
     request.SetResponseStatus(userver::server::http::HttpStatus::kConflict);
     response["status"] = "duplicate";
-    response["message"] = "masterclass with this id already exists";
   } else {
-    request.SetResponseStatus(
-        userver::server::http::HttpStatus::kCreated);
+    request.SetResponseStatus(userver::server::http::HttpStatus::kCreated);
     response["status"] = "created";
   }
 
@@ -107,4 +150,3 @@ std::string McAddHandler::HandleRequestThrow(
 }
 
 }  // namespace masterclasses::handlers
-

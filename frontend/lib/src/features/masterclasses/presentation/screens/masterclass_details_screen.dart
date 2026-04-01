@@ -7,6 +7,7 @@ import '../../../../core/providers/favorites_provider.dart';
 import '../../domain/masterclass.dart';
 import '../../../../core/api_client.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../core/analytics.dart';
 import '../../../../core/strings.dart';
 
 class MasterclassDetailsScreen extends StatefulWidget {
@@ -52,6 +53,15 @@ class _MasterclassDetailsScreenState extends State<MasterclassDetailsScreen> {
     try {
       final userId = await SessionStorage.getUserId();
       if (userId == null) return;
+
+      final wasFavorite = context
+          .read<FavoritesProvider>()
+          .isFavorite(widget.masterclass.id);
+      if (wasFavorite) {
+        Analytics.clickNotAttend(widget.masterclass.id);
+      } else {
+        Analytics.clickAttend(widget.masterclass.id);
+      }
 
       await context
           .read<FavoritesProvider>()

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/api_client.dart';
+import '../../../../core/analytics.dart';
 import '../../../../core/strings.dart';
 import '../../../masterclasses/domain/masterclass.dart';
 import '../../chat_state.dart';
@@ -35,6 +36,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final chat = context.read<ChatState>();
     final trimmed = text.trim();
     if (trimmed.isEmpty || chat.loading) return;
+    Analytics.botUsed();
     _controller.clear();
     _scrollToEnd();
     try {
@@ -515,6 +517,7 @@ class _ChatMcPhotoTile extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
+            Analytics.cardView(mc.id);
             context.push('/masterclass', extra: {
               'masterclass': mc,
             });

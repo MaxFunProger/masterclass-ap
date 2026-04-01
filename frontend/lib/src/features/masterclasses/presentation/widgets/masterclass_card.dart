@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../domain/masterclass.dart';
 import '../../../../core/api_client.dart';
+import '../../../../core/analytics.dart';
 import '../../../../core/strings.dart';
 
 /// Иконка избранного в отдельном [IconButton] над [InkWell], иначе конфликт жестов с открытием деталей.
@@ -31,6 +32,7 @@ class MasterclassCard extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: () async {
+                Analytics.cardView(masterclass.id);
                 await context.push<bool>('/masterclass', extra: {
                   'masterclass': masterclass,
                 });

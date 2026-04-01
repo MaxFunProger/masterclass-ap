@@ -9,6 +9,7 @@ import '../../../../core/api_client.dart';
 import '../widgets/masterclass_card.dart';
 import '../widgets/filter_modal.dart';
 import '../widgets/week_date_strip.dart';
+import '../../../../core/analytics.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -161,6 +162,7 @@ class _FeedScreenState extends State<FeedScreen> {
       builder: (context) => FilterModal(
         currentFilters: _filters,
         onApply: (filters) {
+          Analytics.searchUsed(filters);
           setState(() => _filters = filters);
           _loadMasterclasses(reset: true);
         },
@@ -246,6 +248,14 @@ class _FeedScreenState extends State<FeedScreen> {
                             onFavoritePressed: () async {
                               final userId = await SessionStorage.getUserId();
                               if (userId != null && context.mounted) {
+                                final wasFavorite = context
+                                    .read<FavoritesProvider>()
+                                    .isFavorite(masterclass.id);
+                                if (wasFavorite) {
+                                  Analytics.favoriteRemove(masterclass.id);
+                                } else {
+                                  Analytics.favoriteAdd(masterclass.id);
+                                }
                                 await context
                                     .read<FavoritesProvider>()
                                     .toggleFavorite(userId, masterclass.id);

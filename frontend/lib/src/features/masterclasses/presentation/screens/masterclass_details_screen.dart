@@ -236,11 +236,15 @@ class _MasterclassDetailsScreenState extends State<MasterclassDetailsScreen> {
               if (widget.masterclass.contactTg != null &&
                   widget.masterclass.contactTg!.isNotEmpty)
                 _buildSocialButton('assets/tg.png',
-                    widget.masterclass.contactTg!, Icons.telegram),
+                    widget.masterclass.contactTg!, Icons.telegram, () {
+                  Analytics.clickTelegram(widget.masterclass.id);
+                }),
               if (widget.masterclass.website.isNotEmpty) ...[
                 const SizedBox(width: 8),
                 _buildSocialButton('assets/web.png', widget.masterclass.website,
-                    Icons.language),
+                    Icons.language, () {
+                  Analytics.clickWebsite(widget.masterclass.id);
+                }),
               ]
             ],
           ),
@@ -261,9 +265,12 @@ class _MasterclassDetailsScreenState extends State<MasterclassDetailsScreen> {
   }
 
   Widget _buildSocialButton(
-      String assetPath, String url, IconData fallbackIcon) {
+      String assetPath, String url, IconData fallbackIcon, VoidCallback onTrack) {
     return GestureDetector(
-      onTap: () => _launchUrl(url),
+      onTap: () {
+        onTrack();
+        _launchUrl(url);
+      },
       child: Container(
         width: 50,
         height: 50,

@@ -38,4 +38,12 @@ class Analytics {
   static void botUsed() {
     AppMetrica.reportEvent('bot_used');
   }
+
+  static void clickWebsite(int masterclassId) {
+    AppMetrica.reportEventWithMap('click_website', {'masterclass_id': masterclassId});
+  }
+
+  static void clickTelegram(int masterclassId) {
+    AppMetrica.reportEventWithMap('click_telegram', {'masterclass_id': masterclassId});
+  }
 }

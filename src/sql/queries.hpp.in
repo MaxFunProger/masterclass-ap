@@ -1,0 +1,72 @@
+#pragma once
+
+#include <userver/storages/postgres/query.hpp>
+
+namespace masterclasses::sql {
+
+inline const userver::storages::postgres::Query
+    kSelectMasterclassesFiltered{
+        R"sql(@SQL_SELECT_MASTERCLASSES_FILTERED@)sql",
+        userver::storages::postgres::Query::Name{
+            "select-masterclasses-filtered"}};
+
+inline const userver::storages::postgres::Query
+    kSelectMasterclassesFilteredDateAsc{
+        R"sql(@SQL_SELECT_MASTERCLASSES_FILTERED_DATE_ASC@)sql",
+        userver::storages::postgres::Query::Name{
+            "select-masterclasses-filtered-date-asc"}};
+
+inline const userver::storages::postgres::Query
+    kSelectMasterclassesFilteredDateDesc{
+        R"sql(@SQL_SELECT_MASTERCLASSES_FILTERED_DATE_DESC@)sql",
+        userver::storages::postgres::Query::Name{
+            "select-masterclasses-filtered-date-desc"}};
+
+inline const userver::storages::postgres::Query kInsertMasterclass{
+    R"sql(@SQL_INSERT_MASTERCLASS@)sql",
+    userver::storages::postgres::Query::Name{"insert-masterclass"}};
+
+inline const userver::storages::postgres::Query kDeleteMasterclass{
+    R"sql(@SQL_DELETE_MASTERCLASS@)sql",
+    userver::storages::postgres::Query::Name{"delete-masterclass"}};
+
+inline const userver::storages::postgres::Query kSelectUserByPhone{
+    R"sql(@SQL_SELECT_USER_BY_PHONE@)sql",
+    userver::storages::postgres::Query::Name{
+        "select-user-by-phone-digits"}};
+
+inline const userver::storages::postgres::Query kExistsUserByPhoneDigits{
+    R"sql(@SQL_EXISTS_USER_BY_PHONE@)sql",
+    userver::storages::postgres::Query::Name{
+        "exists-user-by-phone-digits"}};
+
+inline const userver::storages::postgres::Query kInsertUser{
+    R"sql(@SQL_INSERT_USER@)sql",
+    userver::storages::postgres::Query::Name{"insert-user"}};
+
+inline const userver::storages::postgres::Query kSelectUserProfile{
+    R"sql(@SQL_SELECT_USER_PROFILE@)sql",
+    userver::storages::postgres::Query::Name{"select-user-profile"}};
+
+inline const userver::storages::postgres::Query kDeleteUserRequests{
+    R"sql(@SQL_DELETE_USER_REQUESTS@)sql",
+    userver::storages::postgres::Query::Name{"delete-user"}};
+
+inline const userver::storages::postgres::Query kInsertFavorite{
+    R"sql(@SQL_INSERT_FAVORITE@)sql",
+    userver::storages::postgres::Query::Name{"insert-favorite"}};
+
+inline const userver::storages::postgres::Query kDeleteFavorite{
+    R"sql(@SQL_DELETE_FAVORITE@)sql",
+    userver::storages::postgres::Query::Name{"delete-favorite"}};
+
+inline const userver::storages::postgres::Query kSelectFavorites{
+    R"sql(@SQL_SELECT_FAVORITES@)sql",
+    userver::storages::postgres::Query::Name{"select-favorites"}};
+
+inline const userver::storages::postgres::Query kSelectMasterclassesByIds{
+    R"sql(@SQL_SELECT_MASTERCLASSES_BY_IDS@)sql",
+    userver::storages::postgres::Query::Name{
+        "select-masterclasses-by-ids"}};
+
+}  // namespace masterclasses::sql

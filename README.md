@@ -1,265 +1,150 @@
-# Masterclasses userver Service
+# Masterclasses
 
-## Состав
+Афиша мастер-классов: бэкенд на C++ (userver), мобильное приложение на Flutter, чат-бот через Yandex GPT.
 
-- `src/` — исходники обработчиков `/ping`, `/mclist`, `/mcadd`.
-- `configs/` — статический конфиг userver, секресты и fallback'и.
-- `scripts/db/` — SQL‑инициализация для двух БД (`masterclasses`, `users`).
-- `docker-compose.yml` — локальный стенд из двух PostgreSQL.
+## Структура
 
-## Запуск баз данных
-
-```bash
-cd /home/miximka/masterclasses
-docker compose up -d
-# masterclasses DB слушает :5433, users DB — :5434
+```
+src/                    C++ бэкенд (userver): хэндлеры, утилиты
+src/sql/                SQL-запросы (подставляются в код через CMake)
+configs/                static_config.yaml, secdist.json
+scripts/                сборка, импорт данных, запуск сервисов
+scripts/db/init.sql     схема БД (masterclasses, users, user_favorites)
+frontend/               Flutter-приложение (Android)
+agent_sidecar/          Python FastAPI — прокси к Yandex GPT с инструментом поиска
+docker-compose.yml      postgres + backend + agent-sidecar
 ```
 
-Контейнеры применят SQL из `scripts/db/*.sql` при первом старте.  
-Остановить Postgres можно командой `docker compose down`.
-Данные баз сохраняются в Docker volumes (`masterclasses-data`, `users-data`), поэтому
-после остановки контейнеров информация не теряется. Чтобы очистить базы и
-переинициализировать их из SQL-скриптов, используйте `docker compose down -v`.
+## Архитектура
 
-## Настройка userver
-
-DSN'ы Postgres лежат в `configs/secdist.json`. Отредактируйте логины/хосты при необходимости (например, если запускаете удалённо или в Docker Desktop).
-
-Статический конфиг: `configs/static_config.yaml`. Там описаны все компоненты userver, путь к секдисту, TaskProcessor'ы и HTTP‑обработчики.
-
-## Сборка и запуск сервиса локально
-
-### Зависимости
-
-- CMake ≥ 3.20
-- Компилятор с поддержкой C++20 (clang-15 / gcc-12+)
-- `libuserver-dev`, `libpq-dev`, `pkg-config`
-
-На Ubuntu 22.04:
-
-```bash
-sudo apt install cmake pkg-config libpq-dev libuserver-dev
+```
+Flutter app ──► Backend :80 ──► PostgreSQL :5432
+     │              │
+     └──► Agent :5000 ──► Yandex GPT API
+               │
+               └──► Backend /mclist (tool call)
 ```
 
-### Быстрый старт
+Приложение обращается к бэкенду напрямую (REST) и к агенту (чат). Агент при необходимости вызывает `GET /mclist` на бэкенде — ищет мастер-классы по параметрам, которые определяет модель.
 
-1. **Поднимите Postgres**  
-   ```bash
-   cd /home/miximka/masterclasses
-   docker compose up -d
-   ```
+## Файлы вне репозитория
 
-2. **Проверьте DSN**  
-   В `configs/secdist.json` уже прописаны локальные DSN (`localhost:5433/5434`). Отредактируйте при необходимости.
+| Файл | Зачем | Как получить |
+|------|-------|-------------|
+| `data.csv` | Данные мастер-классов для импорта | У автора проекта; формат см. в `scripts/import_data.py` |
+| `static/images/` | Фото мастер-классов | `./scripts/load_masterclasses_and_images.sh` |
+| `agent_sidecar/.env` | Ключи Yandex AI | `cp agent_sidecar/env.example agent_sidecar/.env` |
+| `frontend/android/key.properties` | Подпись APK | `cp frontend/android/key.properties.example ...` |
+| `frontend/android/*.jks` | Keystore | `keytool -genkey ...` (см. `frontend/README.md`) |
 
-3. **Соберите бинарник**  
-   ```bash
-   cd /home/miximka/masterclasses
-   cmake -S . -B build
-   cmake --build build
-   ```
-   > При желании можно указать другой генератор, например `-G Ninja`.
+## Запуск (Docker)
 
-4. **Запустите сервис**  
-   ```bash
-   ./build/masterclasses-service \
-     --config /home/miximka/masterclasses/configs/static_config.yaml
-   ```
+```bash
+./scripts/run_backend.sh
+```
 
-5. **Проверьте эндпоинты** (см. раздел «HTTP API» ниже).  
-   Для остановки сервиса нажмите `Ctrl+C`, для остановки БД — `docker compose down`.
+Поднимает три контейнера: `postgres`, `backend`, `agent-sidecar`.
 
-### Сборка внутри docker (опционально)
+Порты по умолчанию:
 
-1. Установите userver и зависимости внутрь образа (см. официальную документацию Yandex userver).
-2. Смонтируйте исходники внутрь контейнера и выполните шаги из блока «Быстрый старт».
+| Сервис | Порт на хосте | Переменная в `.env` |
+|--------|--------------|---------------------|
+| Backend API | 80 | `MASTERCLASSES_HTTP_PORT` |
+| Agent (чат) | 5000 | `AGENT_HTTP_PORT` |
+| PostgreSQL | 5433 | — |
+| userver monitor | 18081 | `MASTERCLASSES_MONITOR_PORT` |
 
-## HTTP API
+Для чата нужен `agent_sidecar/.env` с ключами Yandex. Без него агент стартует, но отвечает 503.
+
+Остановка: `docker compose down`. Сброс БД: `docker compose down -v`.
+
+## Сборка бэкенда на хосте
+
+Зависимости: CMake ≥ 3.20, C++20 (gcc-12+ / clang-15), userver (core + postgresql), libpq-dev.
+
+```bash
+docker compose up -d postgres                        # только БД
+cmake -S . -B build && cmake --build build
+./build/masterclasses-service -c configs/static_config.yaml
+```
+
+Порт 80 без root: `sudo setcap 'cap_net_bind_service=+ep' ./build/masterclasses-service` или поменять порт в `static_config.yaml`.
+
+DSN для локального запуска — `configs/secdist.json` (по умолчанию `localhost:5433`). В Docker DSN генерируется entrypoint-скриптом из переменных окружения.
+
+## Сборка Flutter-приложения
+
+Через скрипт: `./scripts/build_android_apk.sh`
+
+| Параметр | По умолчанию | Назначение |
+|----------|-------------|-----------|
+| `API_HOST` | debug: `10.0.2.2` (эмулятор), release: прод | Хост бэкенда |
+| `API_PORT` | `80` | Порт бэкенда |
+| `CHAT_HOST` | тот же, что `API_HOST` | Хост агента |
+| `CHAT_PORT` | `5000` | Порт агента |
+
+Подпись release для Google Play — см. `frontend/README.md`.
+
+## Агент чат-бот
+
+Без Docker:
+
+```bash
+./scripts/run_agent_sidecar.sh
+```
+
+Скрипт создаёт venv, ставит зависимости, подхватывает `agent_sidecar/.env` и запускает uvicorn на `:5000`.
+
+Переменные окружения описаны в `agent_sidecar/env.example` и `agent_sidecar/README.md`.
+
+## API бэкенда
 
 Все ответы — `application/json`.
 
-### `GET /ping`
+| Метод | Путь | Назначение |
+|-------|------|-----------|
+| GET | `/ping` | Healthcheck |
+| GET | `/mclist` | Список мастер-классов с фильтрами и пагинацией |
+| POST | `/mcadd` | Добавить мастер-класс |
+| DELETE | `/mcdelete?id=` | Удалить мастер-класс |
+| POST | `/register` | Регистрация (phone, full_name, password) |
+| POST | `/login` | Авторизация (phone, password) → user_id |
+| DELETE | `/userdelete?user_id=` | Удалить пользователя |
+| GET | `/user/profile?user_id=` | Профиль пользователя |
+| GET/POST/DELETE | `/user/favorites` | Избранное (user_id, masterclass_id) |
+| GET | `/static/*` | Статические файлы (фото и др.), из in-memory кэша |
 
-Проверка живости сервиса.
+### GET /mclist — параметры фильтрации
 
-Пример:
+| Параметр | Тип | Описание |
+|----------|-----|---------|
+| `n` | int | Количество записей (макс. 100, по умолчанию 20) |
+| `offset` | int | Смещение |
+| `category` | string | Токены через запятую: `cooking_baking`, `photography`, `tech_coding`, ... |
+| `audience` | string | `adults`, `kids`, `families`, `teens`, `corporate`, `date_couple`, ... |
+| `format` | string | `online` / `offline` |
+| `company` | string | `single` / `friends` |
+| `tags` | string | Доп. теги через запятую |
+| `min_age` | int | Минимальный возраст |
+| `min_price`, `max_price` | float | Диапазон цены |
+| `min_rating` | float | Минимальный рейтинг |
+| `event_date_from`, `event_date_to` | YYYY-MM-DD | Диапазон дат проведения |
+| `exclude_ids` | string | ID через запятую — исключить из выдачи |
+| `sort_order` | string | `date_asc` / `date_desc` |
 
-```bash
-curl http://localhost:8080/ping
-```
+Полный список токенов `category` и `audience` описан в системном промпте агента (`agent_sidecar/main.py`).
 
-Ответ:
+### API агента
 
-```json
-{ "status": "ok", "service": "masterclasses-service", "timestamp": "2025-11-19T08:00:00Z" }
-```
+| Метод | Путь | Назначение |
+|-------|------|-----------|
+| GET | `/health` | Статус, версия маппингов |
+| POST | `/chat` | Сообщение: `{ "message": "...", "messages": [...], "shown_masterclass_ids": [...] }` |
 
-### `GET /mclist?n=<N>&user_id=<uuid>`
+Ответ `/chat`: `{ "reply": "...", "shown_masterclass_ids": [...], "masterclasses_preview": [...] }`.
 
-- `n` — положительное число (до 100), сколько мастер‑классов вернуть.
-- `user_id` — идентификатор пользователя. Если указан, пользователь должен существовать в `users-db`
-  (создаётся через `/useradd`), иначе будет `404 Not Found`. Если параметр опущен, список мастер‑классов
-  вернётся без привязки к пользователю (без `user_id` и `request_count` в ответе).
+`shown_masterclass_ids` — эхо для exclude: клиент передаёт их обратно при следующем запросе, чтобы «ещё варианты» не повторяли уже показанные.
 
-Действия обработчика:
+## Дополнительная документация
 
-1. Берёт первые `n` мастер‑классов из таблицы `masterclasses`.
-2. Увеличивает счётчик запросов пользователя в таблице `user_requests` (вставляет запись, если её не было).
-
-Пример:
-
-```bash
-curl "http://localhost:8080/mclist?n=5&user_id=user-42"
-```
-
-Ответ:
-
-```json
-{
-  "user_id": "user-42",
-  "request_count": 7,
-  "returned": 5,
-  "masterclasses": [
-    {
-      "id": 1,
-      "title": "Latte Art 101",
-      "location": "Moscow",
-      "price": 3000.0,
-      "website": "https://example.com/latte",
-      "image_url": "https://example.com/latte.jpg"
-    }
-    // ...
-  ]
-}
-```
-
-### `POST /mcadd`
-
-Добавляет новую запись о мастер‑классе. Тело запроса:
-
-```json
-{
-  "id": 17,
-  "title": "Pottery basics",
-  "location": "Saint Petersburg",
-  "price": 4500.0,
-  "website": "https://example.com/pottery",
-  "image_url": "https://example.com/pottery.jpg"
-}
-```
-
-- Если запись с таким `id` уже существует, сервис возвращает `409 Conflict` и не вносит изменений.
-- В случае успеха — `201 Created`.
-
-Пример:
-
-```bash
-curl -X POST http://localhost:8080/mcadd \
-  -H 'Content-Type: application/json' \
-  -d '{"id":5,"title":"Sushi","location":"Online","price":2500,"website":"https://example.com","image_url":"https://example.com/sushi.jpg"}'
-```
-
-### `POST /mcadd/bulk`
-
-Добавляет несколько мастер-классов за один запрос. Тело — массив объектов
-в формате, идентичном `/mcadd`.
-
-```json
-[
-  {
-    "id": 11,
-    "title": "Latte Art 101",
-    "location": "Moscow",
-    "price": 3000.0,
-    "website": "https://example.com/latte",
-    "image_url": "https://example.com/latte.jpg"
-  },
-  {
-    "id": 12,
-    "title": "Pottery basics",
-    "location": "Saint Petersburg",
-    "price": 4500.0,
-    "website": "https://example.com/pottery",
-    "image_url": "https://example.com/pottery.jpg"
-  }
-]
-```
-
-Ответ содержит количество созданных записей и статус по каждому элементу.
-Если хотя бы одна запись добавлена, HTTP-статус будет `201 Created` (либо
-`207 Multi-Status` при частичном успехе), иначе `409 Conflict`.
-
-```bash
-curl -X POST http://localhost:8080/mcadd/bulk \
-  -H 'Content-Type: application/json' \
-  -d '[{"id":11,"title":"Latte","location":"Moscow","price":3000,"website":"https://example.com/latte","image_url":"https://example.com/latte.jpg"}]'
-```
-
-### `DELETE /mcdelete?id=<id>`
-
-Удаляет мастер‑класс по идентификатору. Обязательный query-параметр `id`.
-
-Ответы:
-
-- `200 OK` — запись удалена, `{"id":42,"status":"deleted"}`
-- `404 Not Found` — такой записи нет, `{"id":42,"status":"not_found"}`
-- `400 Bad Request` — неверный или отсутствующий параметр `id`.
-
-Пример:
-
-```bash
-curl -X DELETE "http://localhost:8080/mcdelete?id=42"
-```
-
-### `POST /useradd`
-
-Добавляет нового пользователя в `users-db`. Тело запроса:
-
-```json
-{
-  "user_id": "user-42",
-  "phone": "+7-999-000-00-00",
-  "full_name": "Ivan Ivanov",
-  "telegram_nick": "@ivan",
-  "request_count": 0
-}
-```
-
-Поле `request_count` опционально (по умолчанию `0`).  
-Ответы:
-
-- `201 Created` — пользователь создан;
-- `409 Conflict` — пользователь уже существует.
-
-```bash
-curl -X POST http://localhost:8080/useradd \
-  -H 'Content-Type: application/json' \
-  -d '{"user_id":"user-42","phone":"+7-999-000-00-00","full_name":"Ivan Ivanov","telegram_nick":"@ivan"}'
-```
-
-### `DELETE /userdelete?user_id=<id>`
-
-Удаляет пользователя из `users-db`. Возвращает:
-
-- `200 OK` — `{"user_id":"user-42","status":"deleted"}`
-- `404 Not Found` — пользователь отсутствует.
-
-```bash
-curl -X DELETE "http://localhost:8080/userdelete?user_id=user-42"
-```
-
-## Тестирование
-
-- Быстрый smoke-тест — `curl` запросы к трём эндпоинтам.
-- Для интеграционных тестов можно использовать любую систему (pytest, testsuite) поверх поднятых контейнеров PostgreSQL.
-
-## Полезные команды
-
-```bash
-# остановить БД
-docker compose down
-
-# посмотреть логи сервиса
-journalctl -u masterclasses-service -f
-```
-
+- `frontend/README.md`

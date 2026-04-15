@@ -11,7 +11,7 @@ components_manager:
   components:
     server:
       listener:
-        port: 8080
+        port: 80
         address: 0.0.0.0
         task_processor: main-task-processor
       listener-monitor:
@@ -25,17 +25,24 @@ components_manager:
       loggers:
         default:
           file_path: '@stderr'
-          level: info
-          flush_level: info
-
-    tracer:
-      service-name: masterclasses-service
+          level: warning
+          flush_level: warning
 
     dns-client:
       fs-task-processor: fs-task-processor
 
+    http-client-middleware-pipeline:
+      middlewares:
+        http-client-middleware-disabled:
+          enabled: false
+        http-client-middleware-override:
+          enabled: false
+
     http-client:
       core-component: http-client-core
+      middlewares:
+        http-client-middleware-override:
+          enabled: false
     http-client-core:
       fs-task-processor: fs-task-processor
 
@@ -53,12 +60,8 @@ components_manager:
       defaults:
         USERVER_LOG_REQUEST: false
 
-    masterclasses-db:
-      dbalias: masterclasses-db
-      blocking_task_processor: fs-task-processor
-
-    users-db:
-      dbalias: users-db
+    app-db:
+      dbalias: app-db
       blocking_task_processor: fs-task-processor
 
     handler-ping:
@@ -76,18 +79,18 @@ components_manager:
       task_processor: main-task-processor
       method: POST
 
-    handler-mcaddbulk:
-      path: /mcadd/bulk
-      task_processor: main-task-processor
-      method: POST
-
     handler-mcdelete:
       path: /mcdelete
       task_processor: main-task-processor
       method: DELETE
 
-    handler-useradd:
-      path: /useradd
+    handler-auth-register:
+      path: /register
+      task_processor: main-task-processor
+      method: POST
+
+    handler-auth-login:
+      path: /login
       task_processor: main-task-processor
       method: POST
 
@@ -96,3 +99,23 @@ components_manager:
       task_processor: main-task-processor
       method: DELETE
 
+    handler-user-profile:
+      path: /user/profile
+      task_processor: main-task-processor
+      method: GET
+
+    handler-user-favorites:
+      path: /user/favorites
+      task_processor: main-task-processor
+      method: GET,POST,DELETE
+
+    fs-cache-component:
+      dir: static
+      fs-task-processor: fs-task-processor
+      update-period: 10s
+
+    handler-static:
+      path: /static/*
+      method: GET
+      task_processor: main-task-processor
+      fs-cache-component: fs-cache-component

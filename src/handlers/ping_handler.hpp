@@ -10,15 +10,14 @@
 namespace masterclasses::handlers {
 
 class PingHandler final : public userver::server::handlers::HttpHandlerBase {
- public:
-  static constexpr std::string_view kName = "handler-ping";
+  public:
+    static constexpr std::string_view kName = "handler-ping";
 
-  using HttpHandlerBase::HttpHandlerBase;
+    using HttpHandlerBase::HttpHandlerBase;
 
-  std::string HandleRequestThrow(
-      const userver::server::http::HttpRequest& request,
-      userver::server::request::RequestContext& context) const override;
+    std::string HandleRequestThrow(
+        const userver::server::http::HttpRequest& request,
+        userver::server::request::RequestContext& context) const override;
 };
 
 }  // namespace masterclasses::handlers
-

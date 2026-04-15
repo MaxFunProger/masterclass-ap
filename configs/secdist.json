@@ -1,23 +1,14 @@
 {
   "postgresql_settings": {
     "databases": {
-      "masterclasses-db": [
+      "app-db": [
         {
           "shard_number": 0,
           "hosts": [
-            "postgresql://postgres:postgres@localhost:5433/masterclasses"
-          ]
-        }
-      ],
-      "users-db": [
-        {
-          "shard_number": 0,
-          "hosts": [
-            "postgresql://postgres:postgres@localhost:5434/users"
+            "postgresql://postgres:postgres@127.0.0.1:5433/app?sslmode=disable"
           ]
         }
       ]
     }
   }
 }
-

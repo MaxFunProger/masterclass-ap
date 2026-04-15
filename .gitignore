@@ -1,5 +1,46 @@
 build/
+*.log
+nohup.out
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv*/
 
+# Agent sidecar secrets
+agent_sidecar/.env
+agent_sidecar/agentenv/
 
+# Flutter / Dart build artifacts
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.metadata
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/pubspec.lock
 
+# Android signing (passwords and keys)
+frontend/android/key.properties
+frontend/android/*.jks
+frontend/android/*.keystore
+
+# IDE project files
+*.iml
+.idea/
+
+# Generated documentation
+docs/
+CONNECTIVITY.md
+
+# Data and generated runtime content
+data.csv
+static/images/
+scripts/update_images.sql
+
+# Misc generated files
+*.docx
+test_image.jpg

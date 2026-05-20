@@ -58,6 +58,39 @@ lib/
 
 ## Сборка
 
+### Android
+
 Из корня репозитория: `./scripts/build_android_apk.sh`
 
 Для генерации бандла в google play: `./scripts/build_android_aab.sh`
+
+### iOS (только на macOS)
+
+iOS-релиз нельзя собрать на Linux — нужен **macOS + Xcode + CocoaPods**, плюс Apple Developer аккаунт для подписи. Папка `frontend/ios/` в репозитории отсутствует и создаётся одноразово.
+
+Первый раз на macOS:
+
+```bash
+sudo gem install cocoapods       # если ещё не установлен
+./scripts/setup_ios_platform.sh  # flutter create --platforms=ios + Info.plist + Podfile + bundle id
+open frontend/ios/Runner.xcworkspace
+# В Xcode: Signing & Capabilities → выбрать команду разработчика (automatic provisioning)
+#          General → Minimum Deployments → iOS 13.0
+```
+
+Bundle ID по умолчанию — **`com.cando.app`** (`PRODUCT_BUNDLE_IDENTIFIER` во всех Runner-конфигурациях `project.pbxproj`). Переопределить:
+
+```bash
+IOS_BUNDLE_ID=com.example.app ./scripts/setup_ios_platform.sh
+```
+
+Сама сборка:
+
+```bash
+./scripts/build_ios.sh                  # release IPA для App Store / Transporter
+BUILD_TARGET=app ./scripts/build_ios.sh # .app для запуска на устройстве через Xcode
+```
+
+Переменные те же, что для Android: `API_HOST`, `API_PORT`, `CHAT_HOST`, `CHAT_PORT`.
+
+Важно: бэкенд по `http://158.160.158.103` без TLS — iOS блокирует cleartext через ATS. Скрипт `setup_ios_platform.sh` пропишет в `Info.plist` именованное исключение для этого IP. Для App Store правильнее **перевести бэкенд на HTTPS** (Let's Encrypt + reverse proxy), иначе модератор может попросить обоснование. Для AppMetrica дополнительно потребуется заполнить «Privacy Manifest» (`PrivacyInfo.xcprivacy`) и раздел «Data Collection» в App Store Connect.
